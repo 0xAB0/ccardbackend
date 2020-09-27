@@ -1,5 +1,9 @@
 package march;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import march.dao.ImportResponse;
 import march.models.Statement;
 import march.models.Transaction;
@@ -10,13 +14,14 @@ import org.springframework.beans.PropertyValues;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.StringReader;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Component
@@ -32,7 +37,42 @@ public class Model {
         statements = new ArrayList<>();
         categories = new ArrayList<>();
         pendingTransaction = new Transaction[]{};
-        //load();
+
+        try {
+            load();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    private void load() throws Exception {
+        ObjectMapper mapper = new ObjectMapper(new JsonFactory());
+
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        var tempStatements =
+                mapper.readerForListOf(Statement.class)
+                .readValue(Model.class.getResourceAsStream("/data.json"));
+
+        statements.addAll((List<Statement>)tempStatements);
+
+        categories.addAll(statements.stream()
+                  .flatMap( s -> Stream.of(s.getTransactions()) )
+                  .map( t -> t.getCategory() )
+                  .collect(
+                          Collectors.toSet()
+                  ));
+    }
+
+    private void save() throws IOException {
+        /*ObjectMapper mapper = new ObjectMapper(new JsonFactory());
+        mapper.registerModule(new JavaTimeModule());
+        mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
+
+        FileWriter fw = new FileWriter("c:/users/evan marchant/src/test/ccardbackend/data.json");
+        mapper.writeValue(fw, statements);
+        fw.close();*/
     }
 
     public String [] getStatementNames() {
@@ -134,7 +174,11 @@ public class Model {
         Statement s = new Statement(pendingStatementName, min, max, pendingTransaction);
         statements.add(s);
 
-        //saveStatements()
+        try {
+            save();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         pendingTransaction = new Transaction[]{};
         pendingStatementName = "";

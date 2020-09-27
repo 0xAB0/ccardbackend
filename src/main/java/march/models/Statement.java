@@ -4,10 +4,13 @@ import java.time.Instant;
 import java.time.LocalDate;
 
 public class Statement {
-    private final String name;
-    private final LocalDate startDate;
-    private final LocalDate endDate;
-    private final Transaction [] transactions;
+    private String name;
+    private LocalDate startDate;
+    private LocalDate endDate;
+    private Transaction [] transactions;
+
+    public Statement() {}
+
 
     public Statement(String name, LocalDate startDate, LocalDate endDate, Transaction[] transactions) {
         this.name = name;
@@ -31,4 +34,21 @@ public class Statement {
     public Transaction[] getTransactions() {
         return transactions;
     }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public void setStartDate(LocalDate startDate) {
+        this.startDate = startDate;
+    }
+
+    public void setEndDate(LocalDate endDate) {
+        this.endDate = endDate;
+    }
+
+    public void setTransactions(Transaction[] transactions) {
+        this.transactions = transactions;
+    }
+
 }
