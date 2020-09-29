@@ -3,7 +3,6 @@ package march.controllers;
 import march.Model;
 import march.dao.DataResponse;
 import march.dao.DataRow;
-import march.dao.NameValue;
 import march.models.Statement;
 import march.models.Transaction;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,9 +10,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 
+@CrossOrigin
 @RestController
 @RequestMapping("/details")
 public class DetailsController {
