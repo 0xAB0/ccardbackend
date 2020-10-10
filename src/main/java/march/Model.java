@@ -128,7 +128,7 @@ public class Model {
 
     public ImportResponse importCsv(String name, String csv) {
         // Strip off json
-        csv = csv.substring(2, csv.length() - 7);
+        csv = csv.substring(2, csv.length() - 6);
 
         System.out.println("Import recieved:" + csv);
 
