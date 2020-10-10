@@ -128,6 +128,8 @@ public class Model {
 
     public ImportResponse importCsv(String name, String csv) {
 
+        System.out.println("Import reiecved:" + csv);
+
         try (CSVParser parser = new CSVParser(new StringReader(csv), CSVFormat.DEFAULT)) {
             pendingTransaction = parser.getRecords()
                     .stream()
