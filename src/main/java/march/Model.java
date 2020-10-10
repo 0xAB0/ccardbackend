@@ -129,9 +129,9 @@ public class Model {
     public ImportResponse importCsv(String name, String csv) {
         // Strip off json
         System.out.println("Before" + csv);
-        csv = csv.substring(2, csv.length() - 5);
+        /*csv = csv.substring(2, csv.length() - 5);
 
-        System.out.println("Import recieved:" + csv);
+        System.out.println("Import recieved:" + csv);*/
 
         try (CSVParser parser = new CSVParser(new StringReader(csv), CSVFormat.DEFAULT)) {
             pendingTransaction = parser.getRecords()
