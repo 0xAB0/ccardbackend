@@ -57,7 +57,7 @@ public class Model {
 
         var tempStatements =
                 mapper.readerForListOf(Statement.class)
-                .readValue(Model.class.getResourceAsStream("/data.json"));
+                .readValue(Model.class.getResourceAsStream("/data2.json"));
 
         statements.addAll((List<Statement>)tempStatements);
 
