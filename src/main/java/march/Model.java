@@ -19,23 +19,27 @@ import java.io.IOException;
 import java.io.StringReader;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Component
 @Scope("singleton")
 public class Model {
+    private static final String[] defaultCategories = {
+            "Food", "Motor", "Clothing", "Luxuries",
+            "Presents","DIY","Household"
+    };
+
     private final List<Statement> statements;
-    private final List<String> categories;
+    private final Set<String> categories;
 
     private Transaction [] pendingTransaction;
     private String pendingStatementName;
 
     public Model() {
         statements = new ArrayList<>();
-        categories = new ArrayList<>();
+        categories = new HashSet<>();
         pendingTransaction = new Transaction[]{};
 
         try {
@@ -57,12 +61,14 @@ public class Model {
 
         statements.addAll((List<Statement>)tempStatements);
 
-        categories.addAll(statements.stream()
-                  .flatMap( s -> Stream.of(s.getTransactions()) )
-                  .map( t -> t.getCategory() )
-                  .collect(
-                          Collectors.toSet()
-                  ));
+        var catSet = statements.stream()
+                .flatMap( s -> Stream.of(s.getTransactions()) )
+                .map( t -> t.getCategory() )
+                .collect(
+                        Collectors.toSet()
+                );
+        // Add defaults
+        categories.addAll(Arrays.asList(defaultCategories));
     }
 
     private void save() throws IOException {
@@ -178,6 +184,8 @@ public class Model {
 
         Statement s = new Statement(pendingStatementName, min, max, pendingTransaction);
         statements.add(s);
+
+        Stream.of(s.getTransactions()).map(t -> t.getCategory()).forEach(categories::add);
 
         try {
             save();
