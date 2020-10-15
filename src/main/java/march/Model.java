@@ -14,9 +14,8 @@ import org.springframework.beans.PropertyValues;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.StringReader;
+import java.io.*;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
@@ -57,7 +56,7 @@ public class Model {
 
         var tempStatements =
                 mapper.readerForListOf(Statement.class)
-                .readValue(Model.class.getResourceAsStream("/data2.json"));
+                .readValue( getPersistedData()  );
 
         statements.addAll((List<Statement>)tempStatements);
 
@@ -72,13 +71,13 @@ public class Model {
     }
 
     private void save() throws IOException {
-        /*ObjectMapper mapper = new ObjectMapper(new JsonFactory());
+        ObjectMapper mapper = new ObjectMapper(new JsonFactory());
         mapper.registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-        FileWriter fw = new FileWriter("c:/users/evan marchant/src/test/ccardbackend/data.json");
+        FileWriter fw = new FileWriter("c:/users/evan marchant/documents/ccard/db/db.json");
         mapper.writeValue(fw, statements);
-        fw.close();*/
+        fw.close();
     }
 
     public String [] getStatementNames() {
@@ -134,7 +133,7 @@ public class Model {
 
     public ImportResponse importCsv(String name, String csv) {
         // Strip off json
-        System.out.println("Before" + csv);
+        //System.out.println("Before" + csv);
         /*csv = csv.substring(2, csv.length() - 5);
 
         System.out.println("Import recieved:" + csv);*/
@@ -195,5 +194,11 @@ public class Model {
 
         pendingTransaction = new Transaction[]{};
         pendingStatementName = "";
+    }
+
+    private static InputStream getPersistedData() throws FileNotFoundException {
+        return new FileInputStream(
+                Paths.get("c:/users/evan marchant/documents/ccard/db", "db.json").toFile()
+        );
     }
 }
