@@ -2,6 +2,7 @@ package march;
 
 import org.junit.Assert;
 import org.junit.Before;
+import org.junit.Ignore;
 import org.junit.Test;
 
 import java.io.IOException;
@@ -17,6 +18,7 @@ public class ModelTest {
         model = new Model();
     }
 
+    @Ignore
     @Test
     public void importTest() throws IOException {
         var stream = ModelTest.class.getResourceAsStream("/example_statement.csv");
@@ -32,6 +34,7 @@ public class ModelTest {
         Assert.assertEquals(39.95, txns[0].getAmount(), 0.000001);
     }
 
+    @Ignore
     @Test
     public void getTransactionsPerStatement() throws IOException {
         importAndCommitTestData();

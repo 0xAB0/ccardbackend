@@ -34,4 +34,18 @@ public class TSDataPoint implements Comparable<TSDataPoint> {
     public int compareTo(TSDataPoint o) {
         return time.compareTo(o.time);
     }
+
+    public void sumValue(double amount) {
+        value+=amount;
+    }
+
+    public void swapIfGreater(double amount) {
+        if(amount>value) {
+            value = amount;
+        }
+    }
+
+    public TSDataPoint invert() {
+        return new TSDataPoint(getTime(), -1 * getValue());
+    }
 }

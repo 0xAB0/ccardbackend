@@ -53,4 +53,12 @@ public class Transaction {
     public static Comparator<Transaction> getDecendingSort() {
         return (t1,t2) -> Double.compare(t2.amount, t1.amount);
     }
+
+    public static Comparator<Transaction> getDateSort() {
+        return (t1, t2) -> {
+            if(t1.getDate().isBefore(t2.getDate())) return -1;
+            if(t1.getDate().isEqual(t2.getDate())) return 0;
+            return 1;
+        };
+    }
 }

@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Arrays;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -22,9 +23,10 @@ public class SummaryController {
     @GetMapping("/individual")
     public ResponseEntity<NameValue[]> getIndividual(@RequestParam(name="statement",required = false) String statement,
                                                     @RequestParam(name="start", required = false) String start,
-                                                    @RequestParam(name="end", required = false) String end) {
+                                                    @RequestParam(name="end", required = false) String end,
+                                                     @RequestParam(name="last", required = false) String last) {
 
-        final Transaction[] txns = getTransactions(statement, start, end);
+        final Transaction[] txns = getTransactions(statement, start, end, last);
         if(txns == null) {
             return ResponseEntity.badRequest().build();
         }
@@ -37,9 +39,10 @@ public class SummaryController {
     @GetMapping("/frequent")
     public ResponseEntity<NameValue[]> getFrequent(@RequestParam(name="statement",required = false) String statement,
                                             @RequestParam(name="start", required = false) String start,
-                                            @RequestParam(name="end", required = false) String end) {
+                                            @RequestParam(name="end", required = false) String end,
+                                                   @RequestParam(name="last", required = false) String last) {
 
-        final Transaction[] txns = getTransactions(statement, start, end);
+        final Transaction[] txns = getTransactions(statement, start, end, last);
         if(txns == null) {
             return ResponseEntity.badRequest().build();
         }
@@ -48,13 +51,13 @@ public class SummaryController {
               .collect(
                       Collectors.groupingBy(
                               Transaction::getDescription,
-                              Collectors.summingDouble(Transaction::getAmount)
+                              Collectors.summingInt((t)->1)
                       )
               );
 
         return ResponseEntity.ok(grouped.entrySet()
                .stream()
-               .sorted( (l,r) -> Double.compare(r.getValue(),l.getValue()) )
+               .sorted( (l,r) -> Integer.compare(r.getValue(),l.getValue()) )
                .limit(5)
                .map( e -> {
                    return new NameValue(e.getKey(), e.getValue());
@@ -64,8 +67,9 @@ public class SummaryController {
     @GetMapping("/category")
     public ResponseEntity<NameValue[]> getCategory(@RequestParam(name="statement",required = false) String statement,
                                    @RequestParam(name="start", required = false) String start,
-                                   @RequestParam(name="end", required = false) String end) {
-        final Transaction[] txns = getTransactions(statement, start, end);
+                                   @RequestParam(name="end", required = false) String end,
+                                   @RequestParam(name="last", required = false) String last) {
+        final Transaction[] txns = getTransactions(statement, start, end, last);
         if(txns == null) {
             return ResponseEntity.badRequest().build();
         }
@@ -87,8 +91,8 @@ public class SummaryController {
                 }) .toArray(NameValue[]::new));
     }
 
-    private Transaction[] getTransactions(String statement, String start, String end) {
-        if(statement!=null && (start!=null|| end!=null)) {
+    private Transaction[] getTransactions(String statement, String start, String end, String last) {
+        if(statement!=null && (start!=null|| end!=null) && last!=null) {
             return null;
         } else if( (start == null && end != null) || (start != null && end == null)) {
             return null;
@@ -96,6 +100,8 @@ public class SummaryController {
 
         if(statement!=null) {
             return model.getStatement(statement).getTransactions();
+        } else if(last!=null) {
+            return model.getLastNStatements(Integer.parseInt(last)).stream().flatMap(s -> Arrays.stream(s.getTransactions())).toArray(Transaction[]::new);
         } else {
             return model.getTxnsInRange(start,end);
         }

@@ -7,6 +7,7 @@ public class Statement {
     private String name;
     private LocalDate startDate;
     private LocalDate endDate;
+    private double openBalance;
     private Transaction [] transactions;
 
     public Statement() {}
@@ -35,6 +36,8 @@ public class Statement {
         return transactions;
     }
 
+    public double getOpenBalance() { return openBalance; }
+
     public void setName(String name) {
         this.name = name;
     }
@@ -49,6 +52,10 @@ public class Statement {
 
     public void setTransactions(Transaction[] transactions) {
         this.transactions = transactions;
+    }
+
+    public void setOpenBalance(double balance) {
+        this.openBalance = balance;
     }
 
 }

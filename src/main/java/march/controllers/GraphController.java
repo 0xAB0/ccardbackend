@@ -3,6 +3,7 @@ package march.controllers;
 import march.Model;
 import march.dao.*;
 import march.models.Transaction;
+import march.transforms.TimeSeriesTranformBuilder;
 import march.util.Tuple2;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -41,121 +42,54 @@ public class GraphController {
                                                    @RequestParam(name="start",required = false) String start,
                                                    @RequestParam(name="end",required=false) String end,
                                                    @RequestParam(name="statement",required=false) String statement,
-                                                    @RequestParam(name="resolution",required=false) String resolution) {
-        final String breakdownOpt =
-                breakdown!=null ? breakdown.toLowerCase() : "all";
+                                                    @RequestParam(name="resolution",required=false) String resolution,
+                                                    @RequestParam(name="select",required=false) String select,
+                                                    @RequestParam(name="fill",required=false) String fill,
+                                                    @RequestParam(name="payments",required=false) String payments,
+                                                    @RequestParam(name="interest",required=false) String interest,
+                                                    @RequestParam(name="balance",required=false) String balance,
+                                                    @RequestParam(name="last", required=false) String last) {
 
-        if(!(breakdownOpt.equals("all") || breakdownOpt.equals("category"))) {
+        final TimeSeriesTranformBuilder builder = new TimeSeriesTranformBuilder();
+
+        // Setup the transform builder
+        builder.breakdown(breakdown)
+                .resolution(resolution)
+                .select(select)
+                .fill(fill)
+                .payments(payments)
+                .interest(interest)
+                .balance(balance);
+
+        if(!builder.isValid()) {
             return ResponseEntity.badRequest().build();
         }
 
-        if(statement!=null && (start!=null|| end!=null)) {
+        // Get our transactions
+        final var txns = getTransactions(statement, start, end, last);
+        if(txns==null) {
             return ResponseEntity.badRequest().build();
-        } else if( (start == null && end != null) || (start != null && end == null)) {
-            return ResponseEntity.badRequest().build();
         }
 
-        Transaction[] txns;
-        if(statement != null) {
-            // Return data based on the statement
-            txns = model.getStatement(statement).getTransactions();
-        } else {
-            // Return data based on the date range
-            txns = model.getTxnsInRange(start,end);
-        }
 
-        var charges = Stream.of(txns).filter( t -> t.getAmount() > 0.0);
-        var payments = Stream.of(txns).filter( t -> t.getAmount() <0.0);
-
-        //TODO -> Duplicate code here.
-        var chrgRes = charges
-                .map( t -> new Tuple2(getKey(breakdownOpt, resolution, t), t.getAmount()))
-                .collect(
-                        Collectors.groupingBy(
-                            Tuple2::getFirst, Collectors.summingDouble( t -> (Double)t.getSecond() )
-                        )
-                );
-
-        var payRes = payments.map( t -> new Tuple2(getKey("all", resolution, t), t.getAmount()))
-                            .collect(
-                                    Collectors.groupingBy(
-                                            Tuple2::getFirst, Collectors.summingDouble( t -> (Double)t.getSecond() )
-                                    )
-                            );
-
-        // We now have all the transactions
-        //  need to split into series
-        Function<Object,String> keyExtractor =
-                (r) -> {
-                    var entry = ((Entry<Tuple2<Instant,String>,Double>)r).getKey();
-                    return entry.getSecond();
-                };
-
-        var series = chrgRes.entrySet().stream().collect(
-                Collectors.groupingBy(
-                        keyExtractor,
-                        Collectors.toList()
-                )
-        );
-
-        var paymentSeries = payRes.entrySet().stream().collect(
-                Collectors.groupingBy(
-                        keyExtractor,
-                        Collectors.toList()
-                )
-        );
-
-        // Now we need to transform into our results
-        final List<Series> result = new ArrayList<>(series.size());
-        for( var entry : series.entrySet() ) {
-            // for each entry we create a number of TSDataPoints
-            var dp = entry.getValue().stream()
-                          .map( m -> {
-                              var time = ((Tuple2<LocalDate,String>)m.getKey()).getFirst();
-                              return new TSDataPoint(time, m.getValue());
-                          })
-                          .sorted()
-                          .toArray(TSDataPoint[]::new);
-            result.add(new Series(entry.getKey(), dp));
-        }
-
-        // Like above but translate payments into postive.
-        if(paymentSeries.containsKey("all")) {
-            var dp = paymentSeries.get("all").stream().map(
-                    m -> {
-                        var time = ((Tuple2<LocalDate, String>) m.getKey()).getFirst();
-                        return new TSDataPoint(time, -1 * m.getValue());
-                    })
-                    .sorted()
-                    .toArray(TSDataPoint[]::new);
-
-            result.add(new Series("payment", dp));
-        }
         // For payments, should be a single entry
-
-
-        return ResponseEntity.ok(new TimeSeries(result.toArray(new Series[]{})));
+        return ResponseEntity.ok(builder.build().transform(txns.getFirst(), txns.getSecond()));
     }
 
     @GetMapping("/Pie")
     public ResponseEntity<Pie> getPie(@RequestParam(name="statement", required = false) String statement,
                       @RequestParam(name="start", required = false) String start,
-                      @RequestParam(name="end", required = false) String end) {
+                      @RequestParam(name="end", required = false) String end,
+                                      @RequestParam(name="last", required=false) String last) {
 
-        if(statement!=null && (start!=null|| end!=null)) {
+        if(statement!=null && (start!=null|| end!=null)&&last!=null) {
             return ResponseEntity.badRequest().build();
         } else if( (start == null && end != null) || (start != null && end == null)) {
             return ResponseEntity.badRequest().build();
         }
 
-        Transaction[] txns;
-        if(statement != null) {
-            // Return data based on the statement
-            txns = model.getStatement(statement).getTransactions();
-        } else {
-            // Return data based on the date range
-            txns = model.getTxnsInRange(start,end);
-        }
+        var txnsAndBalance = getTransactions(statement, start, end, last);
+        var txns = txnsAndBalance.getFirst();
 
         var res = Stream.of(txns)
                 .filter(t -> t.getAmount()>0) // Ignore payments.
@@ -181,32 +115,37 @@ public class GraphController {
         ));
     }
 
-    /*
-     * Generate our key
-     */
-    private static Tuple2<LocalDate, String> getKey(String breakOpt, String res, Transaction t) {
-        LocalDate time = t.getDate();
-        if(res == null) {
-            res = "";
+    private Tuple2<Transaction [],Double> getTransactions(String statement, String start, String end, String last) {
+        if(statement!=null && (start!=null|| end!=null) && last!=null) {
+            return null;
+        } else if( (start == null && end != null) || (start != null && end == null)) {
+            return null;
         }
 
-        switch(res) {
-            case "year" : {
-                // Normalise to the year
-                time = time.minusMonths(time.getMonthValue()).minusDays(time.getDayOfMonth());
-                break;
+        Transaction[] txns = null;
+        double openBalance = 0D;
+        if(statement != null) {
+            if(model.getStatement(statement)!=null) {
+                // Return data based on the statement
+                var stat = model.getStatement(statement);
+                txns = stat.getTransactions();
+                openBalance = stat.getOpenBalance();
             }
-            case "month" : {
-                time = time.minusDays(time.getDayOfMonth());
-                break;
-            }
-            default:
-                break;
-        }
+        } else if(last!=null) {
+            // We want the last N statements
+            var stats = model.getLastNStatements(Integer.parseInt(last));
 
-        return new Tuple2<>(
-                time,
-                breakOpt.equalsIgnoreCase("all") ? "all" : t.getCategory()
-        );
+            openBalance = stats.size()>0 ? stats.get(0).getOpenBalance() : 0D;
+            // Build a list of transactions
+            txns = stats.stream().flatMap( s -> Stream.of(s.getTransactions()) ).toArray(Transaction[]::new);
+        } else {
+            // Return data based on the date range
+            txns = model.getTxnsInRange(start,end);
+            //
+            openBalance = model.getBalanceAt(start);
+        }
+        return new Tuple2<>(txns, openBalance);
     }
+
+
 }

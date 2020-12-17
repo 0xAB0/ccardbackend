@@ -7,16 +7,15 @@ import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import march.dao.ImportResponse;
 import march.models.Statement;
 import march.models.Transaction;
+import march.transforms.TimeSeriesTransform;
 import march.util.DateUtils;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
-import org.springframework.beans.PropertyValues;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 import java.io.*;
 import java.nio.file.Paths;
-import java.time.Instant;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -27,7 +26,7 @@ import java.util.stream.Stream;
 public class Model {
     private static final String[] defaultCategories = {
             "Food", "Motor", "Clothing", "Luxuries",
-            "Presents","DIY","Household"
+            "Presents","DIY","Household","Takeaway"
     };
 
     private final List<Statement> statements;
@@ -66,8 +65,10 @@ public class Model {
                 .collect(
                         Collectors.toSet()
                 );
+
         // Add defaults
         categories.addAll(Arrays.asList(defaultCategories));
+        categories.addAll(catSet);
     }
 
     private void save() throws IOException {
@@ -75,7 +76,7 @@ public class Model {
         mapper.registerModule(new JavaTimeModule());
         mapper.disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS);
 
-        FileWriter fw = new FileWriter("c:/users/evan marchant/documents/ccard/db/db.json");
+        FileWriter fw = new FileWriter("c:/users/evan marchant/src/prod/ccard/Data/db.json");
         mapper.writeValue(fw, statements);
         fw.close();
     }
@@ -125,6 +126,11 @@ public class Model {
                         (t.isAfter(start) && t.isBefore(end));
 
     }
+
+    private boolean inRange(Statement s, LocalDate start) {
+        return (s.getStartDate().isBefore(start) && s.getEndDate().isAfter(start));
+    }
+
 
     /*
     Date,Date entered,Reference,Description,Amount,
@@ -196,9 +202,39 @@ public class Model {
         pendingStatementName = "";
     }
 
+    public double getBalanceAt(String startStr) {
+        // Find the first statement in range
+        final var start = LocalDate.parse(startStr);
+
+        var statement =
+                statements.stream().filter( s -> inRange(s, start) ).findFirst();
+
+        if(statement.isEmpty()) return 0D;
+
+        // Now we need to find all transactions
+        var balance = statement.get().getOpenBalance();
+        var txns = statement.get().getTransactions();
+        for(int c=0;c<txns.length;++c) {
+            var txn = txns[c];
+            if(start.isEqual(txn.getDate()) || start.isBefore(txn.getDate())) {
+                return balance;
+            }
+            balance += txn.getAmount();
+        }
+        return balance;
+    }
+
+    public List<Statement> getLastNStatements(int n) {
+        var first = Math.max(0, statements.size()-n);
+        var end = statements.size();
+        return statements.subList(first,end);
+    }
+
     private static InputStream getPersistedData() throws FileNotFoundException {
         return new FileInputStream(
-                Paths.get("c:/users/evan marchant/documents/ccard/db", "db.json").toFile()
+                Paths.get("c:/users/evan marchant/src/prod/ccard/Data", "db.json").toFile()
         );
     }
+
+
 }
